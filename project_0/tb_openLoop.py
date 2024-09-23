@@ -9,22 +9,19 @@ from geometry_msgs.msg import Twist
 #define variables
 d = float(input("Enter travel distance [m]: \n"))
 t = float(input("Enter travel time [s]: \n"))
+v = d/t #constant velocity for scenario 1
+max_v = (4*d)/(3*t) #constant velocity for scenario 2
+a = (16*d)/(3*(t**2)) #acceleration for scenario 2
+rate = 100.0 #publisher rate [hz]
 
+#deal with invalid scenario input
 while True:
     scenario = int(input("Enter scenario (1 or 2)\n"))
     if scenario in [1, 2]:
         break
     else:
         print("Invalid input. Enter 1 or 2.\n")
-    
-rate = 10.0 #publisher rate [hz]
-
-#calculate velocity for scenario 1
-v = d/t
-
-#calculate acceleration for triangular velocity profile
-a = d/((t/2)**2)
-
+           
 #define initial linear and angular velocity 0
 vel = Twist()
 vel.linear.x = 0.0
@@ -69,14 +66,19 @@ class MoveRobot(Node):
         self.elapsed_time = ((self.get_clock().now()) - self.start_time).nanoseconds / 1e9
         
         #create if block for triangular velocity profile
-        if self.elapsed_time <= (t/2):
+        if self.elapsed_time < (t/4):
             vel.linear.x = vel.linear.x + (a/rate)
             self.publisher.publish(vel)
-            self.get_logger().info("speeding up robot")
-        elif (t/2) < self.elapsed_time <= t:
+            self.get_logger().info("accelerating robot")
+        elif (t/4) <= self.elapsed_time < ((3*t)/4):
+            vel.linear.x = max_v
+            self.publisher.publish(vel)
+            self.get_logger().info("moving robot")
+            
+        elif ((3*t)/4) <= self.elapsed_time < (t):
             vel.linear.x = vel.linear.x - (a/rate)
             self.publisher.publish(vel)
-            self.get_logger().info("slowing down robot")
+            self.get_logger().info("decelerating robot")
         else:
             vel.linear.x = 0.0
             self.publisher.publish(vel)
