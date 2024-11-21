@@ -36,7 +36,7 @@ theta_ee = theta_1+theta_2+theta_3
 #Create end effector position vector and link angles vector
 position_vector = sp.Matrix([x_ee, y_ee, theta_ee])
 theta_vector = sp.Matrix([theta_1, theta_2, theta_3])
-
+print(position_vector)
 #Create jacobian and inverse jacobian 
 J = position_vector.jacobian(theta_vector)
 J_inv = J.inv()
