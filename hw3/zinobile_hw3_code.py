@@ -136,6 +136,9 @@ for i in range(0,5):
 
 thetas_vector = sp.Matrix([thetas[0],thetas[1],thetas[2],thetas[3],thetas[4],thetas[5]])
 
+# P = sp.Matrix([A_final[0,3],A_final[1,3],A_final[2,3]])
+
+# Jv = P.jacobian(thetas_vector) #create 3x6 Jv matrix
 
 Z = sp.zeros(3,7) #initialize 3x6 Jw matrix of zeros
 Z[:,0] = sp.Matrix([0,0,1])
@@ -340,10 +343,7 @@ ax.set_zlabel('Z axis')
 
 # Show plot
 plt.show()
-print("End effector trajectory:")
-pprint(end_effector_xyz)
 
-#HOMEWORK 3 ADDITIONS
 
 #Rough estimate of weight of each link
 m = 11 #robot mass is 11 kg
@@ -368,58 +368,18 @@ link4mass = mpl*c6
 link5mass = mpl*c7
 link6mass = mpl*c8
 
-#DH table parameters with same orientation as before, but origins at centers of mass
-dh_theta = [thetas[0], thetas[1]+q, thetas[2], thetas[3]+q, thetas[4], thetas[5]]
-dh_a = [0, 392.08, 570.4, 249.13, 47.75, 57.75]
-dh_d = [c1/2, 156.12, -129.44, 21.07, 57.75, 38.40+45]
-dh_alpha = [q, 0, 0, q, -q, 0]
 
-#create DH table
-dh_table = {
-    "": ["to 1", "to 2", "to 3", "to 4", "to 5", "to 6"],
-    thetai: [dh_theta[0],dh_theta[1],dh_theta[2],dh_theta[3],dh_theta[4],dh_theta[5]],
-    ai: [dh_a[0],dh_a[1],dh_a[2],dh_a[3],dh_a[4],dh_a[5]],
-    di: [dh_d[0],dh_d[1],dh_d[2],dh_d[3],dh_d[4],dh_d[5]],
-    alphai: [dh_alpha[0],dh_alpha[1],dh_alpha[2],dh_alpha[3],dh_alpha[4],dh_alpha[5]]
-
-}
-
-df = pd.DataFrame(dh_table)
-df
+cm1z = (96.65)*0.001
+cm2z = (183.3+(305.43*sp.cos(thetas[1])))*0.001
+cm3z = (183.3+737.31*sp.cos(thetas[1])+138.67*sp.cos(thetas[1]+thetas[2]))*0.001
+cm4z = (183.3+737.31*sp.cos(thetas[1])+387.8*sp.cos(thetas[1]+thetas[2]))*0.001
+cm5z = (cm4z+57.75*sp.cos(thetas[1]+thetas[2]+thetas[3]))*0.001
+cm6z = (cm4z+(115.5*sp.cos(thetas[1]+thetas[2]+thetas[3]))+38.4*sp.sin(thetas[4]))*0.001
 
 
 
 
 
-
-
-
-
-
-#Array of transformation matrices for centers of mass
-A_array_com = [sp.zeros(4,4)]*6
-for i in range(0,6):
-    A_array_com[i] = sp.Matrix([
-        [sp.cos(dh_theta[i]),-sp.sin(dh_theta[i])*sp.cos(dh_alpha[i]),sp.sin(dh_theta[i])*sp.sin(dh_alpha[i]),dh_a[i]*sp.cos(dh_theta[i])],
-        [sp.sin(dh_theta[i]),sp.cos(dh_theta[i])*sp.cos(dh_alpha[i]),-sp.cos(dh_theta[i])*sp.sin(dh_alpha[i]),dh_a[i]*sp.sin(dh_theta[i])],
-        [0,sp.sin(dh_alpha[i]),sp.cos(dh_alpha[i]),dh_d[i]],
-        [0,0,0,1]
-    ])
-
-#Final COM transformation matrix A1*A2*A3*A4*A5*A6
-A_final_com = A_array_com[0]
-for i in range(1,6):
-    A_final_com = A_final_com*A_array_com[i]
-
-#Array of COM transformation matrix products [A1, A1*A2, A1*A2*A3,] etc
-A_products_com = [A_array_com[0]]*6
-for i in range(1,6):
-    A_products_com[i] = A_products_com[i-1]*A_array_com[i]
-#X,Y,Z position equations of each COM
-cm_positions = sp.zeros(3,6)
-for c in range(0,6):
-    for r in range(0,3):
-        cm_positions[r,c] = (A_products_com[c][r,3])*0.001 #converting to meters
 
 
 
@@ -427,12 +387,12 @@ for c in range(0,6):
 
 #Potential energy equation as a function of thetas 1-6
 PE = 9.81*(
-    (link1mass*cm_positions[2,0])+
-    (link2mass*cm_positions[2,1])+
-    (link3mass*cm_positions[2,2])+
-    (link4mass*cm_positions[2,3])+
-    (link5mass*cm_positions[2,4])+
-    (link6mass*cm_positions[2,5]))
+    (link1mass*cm1z)+
+    (link2mass*cm2z)+
+    (link3mass*cm3z)+
+    (link4mass*cm4z)+
+    (link5mass*cm5z)+
+    (link6mass*cm6z))
 
 
 #g vector is partial derivative of PE with respect to thetas 1-6
@@ -441,7 +401,7 @@ for i in range(0,6):
     g[i] = sp.diff(PE,thetas[i])
 
 #PRINT PARAMETRIC GRAVITY MATRIX
-print("parametric gravity matrix:")
+print("parametric gravity matrix")
 pprint(g)
 
 
@@ -463,7 +423,6 @@ torque = g - ((JT*0.001)*F)#torque equation, 0.001 is to convert original jacobi
 torque_array = sp.zeros(6,arraysize)
 for c in range(0,arraysize):
     torque_array[:,c] = ((subs_function(torque,THETA[:,c]))).applyfunc(lambda x: round(x,5))
-
 
 
 #CALCULATE REQUIRED TORQUE, INCLUDING FRICTION FROM THE PEN
@@ -502,6 +461,7 @@ for c in range(0,arraysize):
         torque_with_friction_array[:,c] = ((subs_function(torque_with_friction[:,2],THETA[:,c]))).applyfunc(lambda x: round(x,2))
     else:
         torque_with_friction_array[:,c] = ((subs_function(torque_with_friction[:,3],THETA[:,c]))).applyfunc(lambda x: round(x,2))
+
 
 
 
@@ -577,5 +537,5 @@ axis[1,2].set_ylabel("Torque [N*m]")
 
 
 plt.tight_layout(rect=[0,0,1,0.96])
-figure.suptitle("Joint Torques (friction included)")
+figure.suptitle("Joint Torques (friction considered)")
 plt.show()
